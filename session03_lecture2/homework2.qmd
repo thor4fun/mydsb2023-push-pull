@@ -1,6 +1,6 @@
 ---
 title: "Homerwork 2"
-author: "YOUR NAME HERE"
+author: "Piotr (Peter) Szkolnik"
 date: 2023-05-21
 format: 
   docx: default
@@ -46,7 +46,7 @@ glimpse(mass_shootings)
 ```
 
 | column(variable)     | description                                                                 |
-|-------------------------|----------------------------------------------|
+|--------------------------|----------------------------------------------|
 | case                 | short name of incident                                                      |
 | year, month, day     | year, month, day in which the shooting occurred                             |
 | location             | city and state where the shooting occcurred                                 |
@@ -67,25 +67,45 @@ glimpse(mass_shootings)
 -   Generate a data frame that summarizes the number of mass shootings per year.
 
 ```{r}
-
+#I am taking data I read to mass_shootings and creating a new output where I will group it per year.
+mass_shootings_peryear <- mass_shootings %>%
+#I am grouping my output using group_by and displaying it on the screen
+  group_by(year) %>% 
+  summarise(count = n())
+mass_shootings_peryear
 ```
 
 -   Generate a bar chart that identifies the number of mass shooters associated with each race category. The bars should be sorted from highest to lowest and each bar should show its number.
 
 ```{r}
-
+mass_shootings %>% 
+  count(race) %>%
+# Chnging bar to be sorted from highest to lowest
+  mutate(race = fct_reorder(race, n, .desc = TRUE)) %>% 
+# Using ggplot to create a chart with x, y axis
+  ggplot(aes(x = race, y = n)) + 
+# Specifying column type
+  geom_col() 
 ```
 
 -   Generate a boxplot visualizing the number of total victims, by type of location.
 
 ```{r}
-
+mass_shootings %>%
+  ggplot(aes(x = location_type, y = total_victims)) +
+  geom_boxplot()
 ```
 
 -   Redraw the same plot, but remove the Las Vegas Strip massacre from the dataset.
 
 ```{r}
-
+# I am filtering out the LVS massacre
+mass_shootings_notlas <- mass_shootings %>%
+  filter(case != "Las Vegas Strip massacre")
+# Now I can use the same function to draw the graph
+mass_shootings_notlas %>%
+  ggplot(aes(x = location_type, y = total_victims)) +
+  geom_boxplot()
 ```
 
 ### More open-ended questions
@@ -95,18 +115,58 @@ Address the following questions. Generate appropriate figures/tables to support 
 -   How many white males with prior signs of mental illness initiated a mass shooting after 2000?
 
 ```{r}
+# I will re-load everything from scratch
+library(tidyverse)
+library(wbstats)
+library(skimr)
+library(countrycode)
+library(here)
 
+mass_shootings <- read_csv(here::here("data", "mass_shootings.csv"))
+
+#Now I am filtering for white males with mental inless and focusing on the cases above year 2000 (incl)
+mass_shootings %>%
+  filter(race == "White", male == "TRUE", prior_mental_illness == "Yes", year >= 2000) %>% 
+  summarise(count = n())
+
+#There are 23 cases like this.
 ```
 
 -   Which month of the year has the most mass shootings? Generate a bar chart sorted in chronological (natural) order (Jan-Feb-Mar- etc) to provide evidence of your answer.
 
 ```{r}
+#I am finding out the year and number of events, similar to the first question
+mass_shootings_month <- mass_shootings %>% 
+  group_by(month) %>%
+  summarise(count = n())
 
+#Now I am plotting that data onto a grapth using ggplot
+mass_shootings_month %>% 
+  ggplot(aes(x = month, y = count)) +
+  geom_col() +
+  labs(x = "Month", y = "Shootings", title = "Shootings per month")
+
+#Looks like February is the culprit here.
 ```
 
 -   How does the distribution of mass shooting fatalities differ between White and Black shooters? What about White and Latino shooters?
 
 ```{r}
+#W&B shooters
+white_black_data <- mass_shootings %>%
+  filter(race %in% c("White", "Black"))
+#Creating a graph with this data.
+ggplot(white_black_data, aes(x = race, y = fatalities)) +
+  geom_boxplot() +
+  labs(x = "Race", y = "Fatalities", title = "White vs. Black Shooters")
+
+#W&L shooters
+white_latino_data <- mass_shootings %>%
+  filter(race %in% c("White", "Latino"))
+#Creating a graph with this data
+ggplot(white_latino_data, aes(x = race, y = fatalities)) +
+  geom_boxplot() +
+  labs(x = "Race", y = "Fatalities", title = "White vs. Latino Shooters")
 
 ```
 
@@ -115,13 +175,28 @@ Address the following questions. Generate appropriate figures/tables to support 
 -   Are mass shootings with shooters suffering from mental illness different from mass shootings with no signs of mental illness in the shooter?
 
 ```{r}
+mass_shootings %>%
+  filter(!is.na(prior_mental_illness)) %>% 
+  group_by(prior_mental_illness) %>%
+  summarise(count = n()) %>%  
+  
+  ggplot(aes(x = prior_mental_illness, y = count)) +
+  geom_col() +
+  labs(x = "Mental Illness", y = "Shootings", title = "Proportion of shootings with shooters suffering from mental ilness")
 
 ```
 
 -   Assess the relationship between mental illness and total victims, mental illness and location type, and the intersection of all three variables.
 
 ```{r}
+# I am taking the same code as above, just looking at total victims instead of number of shootings.
+mass_shootings %>% 
+  filter(!is.na(prior_mental_illness)) %>% 
+  ggplot(aes(x = prior_mental_illness, y = total_victims)) +
+  geom_col() +
+  labs(x = "Mental Illness", y = "Total Victims", title = "Mass shootings with shooters suffering from mental illness vs No signs of mental illness ")
 
+# Many more people died in tragiedies cased by people with mental ilness
 ```
 
 Make sure to provide a couple of sentences of written interpretation of your tables/figures. Graphs and tables alone will not be sufficient to answer this question.
@@ -130,8 +205,7 @@ Make sure to provide a couple of sentences of written interpretation of your tab
 
 We will be using a dataset with credit card transactions containing legitimate and fraud transactions. Fraud is typically well below 1% of all transactions, so a naive model that predicts that all transactions are legitimate and not fraudulent would have an accuracy of well over 99%-- pretty good, no? (well, not quite as we will see later in the course)
 
-You can read more on credit card fraud on 
-[Credit Card Fraud Detection Using Weighted Support Vector Machine](https://www.scirp.org/journal/paperinformation.aspx?paperid=105944)
+You can read more on credit card fraud on [Credit Card Fraud Detection Using Weighted Support Vector Machine](https://www.scirp.org/journal/paperinformation.aspx?paperid=105944)
 
 The dataset we will use consists of credit card transactions and it includes information about each transaction including customer details, the merchant and category of purchase, and whether or not the transaction was a fraud.
 
@@ -154,7 +228,7 @@ The data dictionary is as follows
 | column(variable)      | description                                 |
 |-----------------------|---------------------------------------------|
 | trans_date_trans_time | Transaction DateTime                        |
-| trans_year | Transaction year                        |
+| trans_year            | Transaction year                            |
 | category              | category of merchant                        |
 | amt                   | amount of transaction                       |
 | city                  | City of card holder                         |
@@ -168,31 +242,101 @@ The data dictionary is as follows
 | merch_long            | Longitude Location of Merchant              |
 | is_fraud              | Whether Transaction is Fraud (1) or Not (0) |
 
-
 -   In this dataset, how likely are fraudulent transactions? Generate a table that summarizes the number and frequency of fraudulent transactions per year.
+
 ```{r}
+library(tidyverse)
+library(skimr)
+library(here)
+
+card_fraud <- read_csv(here::here("data", "card_fraud.csv"))
+
+#After loading the data, I am filtering out against fraud and grouping by transaction year.
+card_fraud %>%
+  filter(is_fraud == 1) %>% 
+  group_by(trans_year) %>%
+  summarise(count = n())
 
 ```
 
--   How much money (in US$ terms) are fraudulent transactions costing the company? Generate a table that summarizes the total amount of legitimate and fraudulent transactions per year and calculate the % of fraudulent transactions, in US$ terms.
+-   How much money (in US\$ terms) are fraudulent transactions costing the company? Generate a table that summarizes the total amount of legitimate and fraudulent transactions per year and calculate the % of fraudulent transactions, in US\$ terms.
+
 ```{r}
 
-```
+#Using the data I just loaded in the previous question, I am grouping and creating a categories. 
 
+summary_table <- card_fraud %>%
+  group_by(trans_year, is_fraud) %>%
+  summarize(total_amt = sum(amt))
+
+# Adding up fraud transactions
+fraud_sum <- summary_table %>%
+  filter(is_fraud == 1) %>%
+  mutate(fraud_amt = total_amt) %>%
+  select(trans_year, fraud_amt)
+
+# Adding up legitimate transactions
+legitimate_sum <- summary_table %>%
+  filter(is_fraud == 0) %>%
+  mutate(legitimate_amt = total_amt) %>%
+  select(trans_year, legitimate_amt)
+
+# Calculating proportions (%)
+fraud_percentage <- fraud_sum %>%
+  left_join(legitimate_sum, by = "trans_year") %>%
+  mutate(percentage_fraud = (fraud_amt / (fraud_amt + legitimate_amt)) * 100) %>%
+  select(trans_year, fraud_amt, legitimate_amt, percentage_fraud)
+
+fraud_percentage
+```
 
 -   Generate a histogram that shows the distribution of amounts charged to credit card, both for legitimate and fraudulent accounts. Also, for both types of transactions, calculate some quick summary statistics.
-```{r}
-
-```
-
-- What types of purchases are most likely to be instances of fraud? Consider category of merchants and produce a bar chart that shows % of total fraudulent transactions sorted in order.
 
 ```{r}
 
+#Using data that I just calculated:
+fraud_percentage <- fraud_sum %>%
+  left_join(legitimate_sum, by = "trans_year") %>%
+  mutate(percentage_fraud = (fraud_amt / (fraud_amt + legitimate_amt)) * 100, percentage_legitimate = (legitimate_amt / (fraud_amt + legitimate_amt)) * 100) %>%
+  select(trans_year, fraud_amt, legitimate_amt, percentage_fraud, percentage_legitimate) %>% 
+
+  #I am plotting that data using ggplot  
+  ggplot(aes(x = trans_year, y = fraud_amt + legitimate_amt)) +
+  geom_col(aes(fill = paste0(percentage_fraud, "% Fraud\n", percentage_legitimate, "% Legitimate")), width = 0.5) +
+  labs(title = "Total per Year",
+       x = "Year", y = "Total Amount") +
+  scale_fill_manual(values = c("blue", "green"), name = "Transaction Type")
+
+fraud_percentage
+
 ```
 
-- When is fraud more prevalent? Which days, months, hours? To create new variables to help you in your analysis, we use the `lubridate` package and the following code
+-   What types of purchases are most likely to be instances of fraud? Consider category of merchants and produce a bar chart that shows % of total fraudulent transactions sorted in order.
+
+```{r}
+# What types of purchases are most likely to be instances of fraud? Consider category of merchants
+fraud_by_category <- card_fraud %>%
+  filter(is_fraud == 1) %>%
+  count(category, wt = amt) %>%
+  mutate(percentage = (n / sum(n)) * 100) %>%
+  arrange(desc(percentage))
+
+# Produce a bar chart that shows % of total fraudulent transactions sorted in order
+
+bar_chart <- ggplot(fraud_by_category, aes(x = reorder(category, percentage), y = percentage)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Percentage of Fraudulent Transactions by Merchant Category",
+       x = "Merchant Category", y = "Percentage of Fraudulent Transactions") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Print the bar chart
+bar_chart
+
 ```
+
+-   When is fraud more prevalent? Which days, months, hours? To create new variables to help you in your analysis, we use the `lubridate` package and the following code
+
+```         
 mutate(
   date_only = lubridate::date(trans_date_trans_time),
   month_name = lubridate::month(trans_date_trans_time, label=TRUE),
@@ -201,28 +345,67 @@ mutate(
   )
 ```
 
+-   Are older customers significantly more likely to be victims of credit card fraud? To calculate a customer's age, we use the `lubridate` package and the following code
 
-- Are older customers significantly more likely to be victims of credit card fraud? To calculate a customer's age, we use the `lubridate` package and the following code
-
-```
+```         
   mutate(
    age = interval(dob, trans_date_trans_time) / years(1),
     )
 ```
 
 ```{r}
+#Using mutate function
+card_fraud <- card_fraud %>% 
+  mutate(
+  date_only = lubridate::date(trans_date_trans_time),
+  month_name = lubridate::month(trans_date_trans_time, label=TRUE),
+  hour = lubridate::hour(trans_date_trans_time),
+  weekday = lubridate::wday(trans_date_trans_time, label = TRUE)
+  )
+
+#When is fraud more prevalent? (grouped by date)
+card_fraud %>% 
+  filter(is_fraud == 1) %>% 
+  group_by(date_only) %>%
+  select(date_only, amt) %>% 
+  arrange(desc(amt))
+#When is fraud more prevalent? (grouped by month)
+card_fraud %>% 
+  filter(is_fraud == 1) %>%
+  group_by(month_name) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+#When is fraud more prevalent? (grouped by hour)
+card_fraud %>% 
+  filter(is_fraud == 1) %>%
+  group_by(hour) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+#When is fraud more prevalent? (grouped by day of week)
+card_fraud %>% 
+  filter(is_fraud == 1) %>%
+  group_by(weekday) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+
+
+#Most ammount of fraud occured on 18th Jan 2019; March and May have most ammount of fraud; fraudsters love to work late (23:00) and on Mondays
+
 
 ```
 
-- Is fraud related to distance? The distance between a card holder’s home and the location of the transaction can be a feature that is related to fraud. To calculate distance, we need the latidue/longitude of card holders's home and the latitude/longitude of the transaction, and we will use the [Haversine formula](https://en.wikipedia.org/wiki/Haversine_formula) to calculate distance. I adapted code to  [calculate distance between two points on earth](https://www.geeksforgeeks.org/program-distance-two-points-earth/amp/) which you can find below
-
+-   Is fraud related to distance? The distance between a card holder's home and the location of the transaction can be a feature that is related to fraud. To calculate distance, we need the latidue/longitude of card holders's home and the latitude/longitude of the transaction, and we will use the [Haversine formula](https://en.wikipedia.org/wiki/Haversine_formula) to calculate distance. I adapted code to [calculate distance between two points on earth](https://www.geeksforgeeks.org/program-distance-two-points-earth/amp/) which you can find below
 
 ```{r}
 # distance between card holder's home and transaction
 # code adapted from https://www.geeksforgeeks.org/program-distance-two-points-earth/amp/
 
+library(tidyverse)
+library(skimr)
+library(here)
+library(lubridate)
 
-fraud <- fraud %>%
+fraud <- card_fraud %>%
   mutate(
     
     # convert latitude/longitude to radians
@@ -239,13 +422,13 @@ fraud <- fraud %>%
 
   )
 
+fraud %>% 
+  ggplot(aes(x = distance_km, y = is_fraud)) +
+  geom_boxplot()
+
 ```
 
 Plot a boxplot or a violin plot that looks at the relationship of distance and `is_fraud`. Does distance seem to be a useful feature in explaining fraud?
-
-
-
-
 
 # Exploring sources of electricity production, CO2 emissions, and GDP per capita.
 
@@ -267,6 +450,11 @@ We will get energy data from the Our World in Data website, and CO2 and GDP per 
 #| message: false
 #| warning: false
 
+library(tidyverse)
+library(wbstats)
+library(skimr)
+library(here)
+
 # Download electricity data
 url <- "https://nyc3.digitaloceanspaces.com/owid-public/data/energy/owid-energy-data.csv"
 
@@ -285,10 +473,10 @@ energy <- read_csv(url) %>%
          wind = wind_electricity, 
          electricity_demand,
          electricity_generation,
-         net_elec_imports,	# Net electricity imports, measured in terawatt-hours
-         energy_per_capita,	# Primary energy consumption per capita, measured in kilowatt-hours	Calculated by Our World in Data based on BP Statistical Review of World Energy and EIA International Energy Data
-         energy_per_gdp,	# Energy consumption per unit of GDP. This is measured in kilowatt-hours per 2011 international-$.
-         per_capita_electricity, #	Electricity generation per capita, measured in kilowatt-hours
+         net_elec_imports,  # Net electricity imports, measured in terawatt-hours
+         energy_per_capita, # Primary energy consumption per capita, measured in kilowatt-hours Calculated by Our World in Data based on BP Statistical Review of World Energy and EIA International Energy Data
+         energy_per_gdp,    # Energy consumption per unit of GDP. This is measured in kilowatt-hours per 2011 international-$.
+         per_capita_electricity, #  Electricity generation per capita, measured in kilowatt-hours
   ) 
 
 # Download data for C02 emissions per capita https://data.worldbank.org/indicator/EN.ATM.CO2E.PC
@@ -315,6 +503,34 @@ gdp_percap <- wb_data(country = "countries_only",
   select(-c(unit, obs_status, footnote, last_updated)) %>% 
   rename(year = date,
          GDPpercap = value)
+
+#Q1 A stacked area chart that shows how your own country generated its electricity since 2000
+
+energy %>% 
+  filter(country == "Poland", year >= 2000) %>% 
+  ggplot(aes(x = year, y = electricity_generation)) +
+  geom_area(colour="red", alpha = 0.7, position = "fill") + 
+  labs(title = "Poland Electricity Generation")
+
+#Q2 A scatter plot that looks at how CO2 per capita and GDP per capita are related
+co2_gdp_percap <- co2_percap %>%
+  left_join(gdp_percap, by = "iso3c")
+
+co2_gdp_percap %>%
+  ggplot(aes(x = co2percap, y = GDPpercap)) +
+  geom_point() + 
+  labs(title = "How CO2 per capita and GDP per capita are related")
+
+#Q3 A scatter plot that looks at how electricity usage (kWh) per capita/day and GDP per capita are related
+energy_gdp_percap <- energy %>% 
+  mutate(iso3c = iso_code) %>% 
+  left_join(gdp_percap, by = "iso3c")
+
+energy_gdp_percap %>% 
+  ggplot(aes(x = per_capita_electricity, y = GDPpercap)) +
+  geom_point() + 
+  labs(title = "How Electricity usage (kWh) per capita/day and GDP per capita are related")
+
 ```
 
 Specific questions:
