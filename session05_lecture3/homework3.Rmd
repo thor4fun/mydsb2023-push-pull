@@ -1,6 +1,6 @@
 ---
 title: "Homework 3: Databases, web scraping, and a basic Shiny app"
-author: "Piotr Szkolnik"
+author: "Your name goes here"
 date: "`r Sys.Date()`"
 output:
   html_document:
@@ -60,114 +60,23 @@ sky_westminster <- DBI::dbConnect(
 
 How many tables does the database have?
 
-
-
 ```{r}
 DBI::dbListTables(sky_westminster)
-
-# 7 tables
 ```
 
 ## Which MP has received the most amount of money? 
 
 You need to work with the `payments` and `members` tables and for now we just want the total among all years. To insert a new, blank chunk of code where you can write your beautiful code (and comments!), please use the following shortcut: `Ctrl + Alt + I` (Windows) or `cmd + option + I` (mac)
-```{r}
-#setting tables up as db object
-payments_db <- dplyr::tbl(sky_westminster, "payments")
-members_db <- dplyr::tbl(sky_westminster, "members")
-parties_db <- dplyr::tbl(sky_westminster,"parties")
-party_donations_db <- dplyr::tbl(sky_westminster,"party_donations")
-appg_donations_db <- dplyr::tbl(sky_westminster,"appg_donations")
-appgs_db <- dplyr::tbl(sky_westminster,"appgs")
-
-payments_df <- payments_db %>% 
-  collect()
-members_df <- members_db %>% 
-  collect()
-parties_df <- parties_db %>% 
-  collect()
-party_donations_df <- party_donations_db %>% 
-  collect()
-appg_donations_df <- appg_donations_db %>% 
-  collect()
-appgs_df <- appgs_db %>% 
-  collect()
-
-
-#sneak peaking what I am dealing with
-members_dm %>% 
-  glimpse()
-
-#to answer the question:
-members_df %>% 
-  # add new column member_id to join with payment_df
-  mutate(member_id = id) %>% 
-  # join members_df with payments_df by matching member_id
-  right_join(payments_df,by="member_id") %>% 
-  # group by MP name
-  group_by(name) %>% 
-  # sum received money for each MP
-  summarise(total_money = sum(value)) %>% 
-  # arrange MP who have more money first
-  arrange(desc(total_money))
-
-# Seems that Ms May collected the most
-
-```
 
 
 ## Any `entity` that accounts for more than 5% of all donations?
 
 Is there any `entity` whose donations account for more than 5% of the total payments given to MPs over the 2020-2022 interval? Who are they and who did they give money to?
-```{r}
-payments_df %>% 
-  # group by each entity
-  group_by(entity) %>% 
-  # sum total money that each entity donate
-  summarise(total_value = sum(value)) %>% 
-  # create a column to show % of donation compared to all donations
-  mutate(percent_of_all_donation = 100*(total_value/sum(total_value))) %>% 
-  # filter only entities that donated >5% compared to all donations
-  filter(percent_of_all_donation > 5) %>% 
-  # arrange entities by 5 of all donation
-  arrange(desc(percent_of_all_donation))  
-# Looks like Withers LLP is the only one that breached the 5% mark, with 1.8m donations.
-```
 
 ## Do `entity` donors give to a single party or not?
 
 - How many distinct entities who paid money to MPS are there?
 - How many (as a number and %) donated to MPs belonging to a single party only?
-```{r}
-payments_df %>% 
-  # filter payments that entity is not empty
-  filter(!is.na(entity)) %>% 
-  # count distinct numbers of entity
-  summarise(count=n_distinct(entity))
-# 2213 entities
-```
-```{r}
-members_df %>% 
-  # add new column member_id to join with payment_df
-  mutate(member_id = id) %>% 
-  # join members_df with payments df by matching member_id
-  right_join(payments_df,by="member_id") %>% 
-  # select to show only entity and party_id column
-  select(entity,party_id) %>% 
-  # group by entity and party_id
-  group_by(entity,party_id) %>% 
-  # count each entity paired with party_id
-  summarise(count=n()) %>% 
-  # select to show only entity column
-  select(entity) %>% 
-  # count number of each entity
-  summarise(count=n()) %>% 
-  # filter only count = 1 (meaning that this entity donated to only a single party)
-  filter(count == 1) %>% 
-  # count total numbers of entities that donated to only a single party
-  summarise(sum_unique=sum(count))
-# Out of 2213 entities, 2036 entities donated to a single party. Its 2023/2213 = 0.92 of the total.
-```
 
 
 ## Which party has raised the greatest amount of money in each of the years 2020-2022? 
@@ -233,8 +142,6 @@ For each patient, the dataframe also lists the patient's states and county [FIPS
 ```{r}
 urban_rural <- read_xlsx(here::here("data", "NCHSURCodes2013.xlsx")) %>% 
   janitor::clean_names() 
-
-glimpse(urban_rural)
 ```
 
 
@@ -271,7 +178,7 @@ We will scrape and work with data foreign connected PACs that donate to US polit
 
 All data come from [OpenSecrets.org](https://www.opensecrets.org), a *"website tracking the influence of money on U.S. politics, and how that money affects policy and citizens' lives"*.
 
-
+```{r, eval=FALSE}
 #| label: allow-scraping-opensecrets
 #| warning: false
 #| message: false
@@ -291,44 +198,9 @@ contributions_tables <- base_url %>%
 - Clean the data: 
 
     -   Write a function that converts contribution amounts in `total`, `dems`, and `repubs` from character strings to numeric values.
-```{r}
-# read table from HTML
-snake_case <- contributions_tables %>% 
-  html_node(css = "table") %>% 
-  html_table()
-# clean variables
-snake_case %>% 
-  janitor::clean_names()
-# Im trying to run the functions provided in the homework
-# write a function to parse_currency
-parse_currency <- function(x){
-  x %>%
-    # remove dollar signs
-    str_remove("\\$") %>%
-    # remove all occurrences of commas
-    str_remove_all(",") %>%
-    # convert to numeric
-    as.numeric()
-}
-```
-
     -   Separate the `country_of_origin_parent_company` into two such that country and parent company appear in different columns for country-level analysis.
-```{r}
-# clean country/parent co and contributions 
-contributions <- snake_case %>%
-  separate("Country of Origin/Parent Company", 
-           into = c("country", "parent"), 
-           sep = "/", 
-           extra = "merge") %>%
-  mutate(
-    total = parse_currency(Total),
-    dems = parse_currency(Dems),
-    repubs = parse_currency(Repubs)
-  )
 
-```
-
-
+```{r, eval=FALSE}
 # write a function to parse_currency
 parse_currency <- function(x){
   x %>%
@@ -379,7 +251,7 @@ The website [https://www.consultancy.uk/jobs/](https://www.consultancy.uk/jobs) 
 
 ```{r}
 #| label: consulting_jobs_url
-
+#| eval: false
 
 library(robotstxt)
 paths_allowed("https://www.consultancy.uk") #is it ok to scrape?
@@ -421,45 +293,6 @@ url <- str_c(base_url, page)
 
 -   Write the data frame to a csv file called `all_consulting_jobs.csv` in the `data` folder.
 
-```{r}
-# create a function that input a link and will return all jobs in that page
-scrap_jobs <- function(x) {
-  
-    # read HMTL
-    jobs_table <- x %>%
-     read_html() 
-    
-    # read table in that HTML
-    jobs_table_from_web <- jobs_table %>% 
-     html_node(css = "table") %>% 
-     html_table()
-    
-    # clean variable
-    jobs_table_from_web %>% 
-     janitor::clean_names()
-    
-    # assign into df
-    jobs_table_by_page <- jobs_table_from_web
-    
-    # print df
-    jobs_table_by_page
-}
-
-# create a list of page numbers
-pages <- c("1","2","3","4","5","6","7","8")
-
-# create a function that generate all pages from input list of number of pages
-page_generator <- function(x) {
-  base_url <- "https://www.consultancy.uk/jobs/page/"
-  url <- str_c(base_url, x)
-  url
-}
-
-# put vectors(all links) into the scrap_jobs function to return integrated df of all jobs in all pages
-# and then write into data file
-write.csv(map(page_generator(pages),scrap_jobs) %>% map_dfr(bind_rows), "/Users/szkol/Desktop/all_consulting_jobs.csv", row.names=FALSE)
-
-```
 
 
 # Create a shiny app - OPTIONAL
