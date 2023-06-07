@@ -126,7 +126,6 @@ print(bte)
 
 ```{r}
 ## Feature exploration
-
 ## Any outliers? 
 
 ```{r}
@@ -146,6 +145,9 @@ bechdel %>%
   theme(legend.position = "none")+
   labs(x=NULL,y = NULL)
 
+```
+```{r}
+#outliers can be seen in a form of black dots on the graph
 ```
 
 
@@ -308,11 +310,10 @@ tree_fit <- tree_mod %>%
 
 Unnest the metrics column from a tidymodels `fit_resamples()`
 ```{r}
-
 collect_metrics(lr_fit)
+```
+```{r}
 collect_metrics(tree_fit)
-
-
 ```
 
 
@@ -373,7 +374,6 @@ Do we have any `genre` with few observations?  Assign genres that have less than
 
 
 ```{r}
-#| echo = FALSE
 bechdel %>% 
   count(genre) %>% 
   mutate(genre = fct_reorder(genre, n)) %>% 
@@ -612,14 +612,24 @@ You now have all your models. Adapt the code from slides `code-from-slides-CA-ho
 
 
 ```{r}
+# Evaluating models
+
+#Logistic regression
 log_res <- log_wflow %>% 
   fit_resamples(
     resamples = bechdel_folds, 
     metrics = metric_set(
       recall, precision, f_meas, accuracy,
       kap, roc_auc, sens, spec),
-    control = control_resamples(save_pred = TRUE)) 
+    control = control_resamples(save_pred = TRUE))
+#          Truth
+#Prediction Fail Pass
+#      Fail  221  214
+#      Pass  396  283
+
+#Show performance over all folds
 log_res %>%  collect_metrics(summarize = TRUE)
+#Show performance for individual folds
 log_res %>%  collect_metrics(summarize = FALSE)
 log_pred <- log_res %>% collect_predictions()
 log_pred %>%  conf_mat(test, .pred_class) 
@@ -638,6 +648,7 @@ log_pred %>%
   roc_curve(test, .pred_Fail) %>% 
   autoplot()
 
+#Decision Tree results
 tree_res <-
   tree_wflow %>% 
   fit_resamples(
@@ -650,6 +661,10 @@ tree_res <-
     ) 
 tree_res %>%  collect_metrics(summarize = TRUE)
 
+```
+
+```{r}
+#Random forest
 rf_res <-
   rf_wflow %>% 
   fit_resamples(
@@ -661,6 +676,13 @@ rf_res <-
     control = control_resamples(save_pred = TRUE)
     ) 
 rf_res %>%  collect_metrics(summarize = TRUE)
+
+
+```
+
+
+```{r}
+#Boosted tree
 
 xgb_res <- 
   xgb_wflow %>% 
@@ -674,6 +696,12 @@ xgb_res <-
     )
 xgb_res %>% collect_metrics(summarize = TRUE)
 
+
+```
+
+
+```{r}
+# K-nearest neighbour
 knn_res <- 
   knn_wflow %>% 
   fit_resamples(
@@ -686,6 +714,12 @@ knn_res <-
     )
 knn_res %>% collect_metrics(summarize = TRUE)
 
+
+```
+
+
+```{r}
+# Model Comparison
 log_metrics <- 
   log_res %>% 
   collect_metrics(summarise = TRUE) %>%
@@ -712,6 +746,11 @@ knn_metrics <-
   collect_metrics(summarise = TRUE) %>%
   mutate(model = "Knn")
 
+
+```
+
+
+```{r}
 # create dataframe with all models
 model_compare <- bind_rows(log_metrics,
                            tree_metrics,
@@ -742,6 +781,16 @@ model_comp %>%
   theme(legend.position = "none")+
   labs(y = NULL)
 
+
+```
+```{r}
+# It seems that random forest model is the best model.
+```
+
+
+```{r}
+# Fitting a model to the trainig data and evaluating it on a test set.
+
 last_fit_xgb <- last_fit(xgb_wflow, 
                         split = data_split,
                         metrics = metric_set(
@@ -749,32 +798,15 @@ last_fit_xgb <- last_fit(xgb_wflow,
                           recall, roc_auc, sens, spec))
 
 last_fit_xgb %>% collect_metrics(summarize = TRUE)
-## # A tibble: 8 × 4
-##   .metric   .estimator .estimate .config             
-##   <chr>     <chr>          <dbl> <chr>               
-## 1 accuracy  binary         0.568 Preprocessor1_Model1
-## 2 f_meas    binary         0.630 Preprocessor1_Model1
-## 3 kap       binary         0.114 Preprocessor1_Model1
-## 4 precision binary         0.599 Preprocessor1_Model1
-## 5 recall    binary         0.665 Preprocessor1_Model1
-## 6 sens      binary         0.665 Preprocessor1_Model1
-## 7 spec      binary         0.448 Preprocessor1_Model1
-## 8 roc_auc   binary         0.610 Preprocessor1_Model1
+
+```
+```{r}
 #Compare to training
 xgb_res %>% collect_metrics(summarize = TRUE)
-## # A tibble: 8 × 6
-##   .metric   .estimator  mean     n std_err .config             
-##   <chr>     <chr>      <dbl> <int>   <dbl> <chr>               
-## 1 accuracy  binary     0.634    10  0.0126 Preprocessor1_Model1
-## 2 f_meas    binary     0.683    10  0.0105 Preprocessor1_Model1
-## 3 kap       binary     0.252    10  0.0270 Preprocessor1_Model1
-## 4 precision binary     0.660    10  0.0136 Preprocessor1_Model1
-## 5 recall    binary     0.712    10  0.0171 Preprocessor1_Model1
-## 6 roc_auc   binary     0.645    10  0.0169 Preprocessor1_Model1
-## 7 sens      binary     0.712    10  0.0171 Preprocessor1_Model1
-## 8 spec      binary     0.539    10  0.0295 Preprocessor1_Model1
-## Variable importance using `{vip}` package
 
+```
+```{r}
+## Variable importance using `{vip}` package
 library(vip)
 
 last_fit_xgb %>% 
@@ -782,27 +814,28 @@ last_fit_xgb %>%
   pull_workflow_fit() %>% 
   vip(num_features = 10) +
   theme_light()
-## Warning: `pull_workflow_fit()` was deprecated in workflows 0.2.3.
-## ℹ Please use `extract_fit_parsnip()` instead.
-## This warning is displayed once every 8 hours.
-## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-## generated.
 
+```
+
+
+
+```{r}
+#Final confusion matrix
 last_fit_xgb %>%
   collect_predictions() %>% 
   conf_mat(test, .pred_class) %>% 
   autoplot(type = "heatmap")
 
+```
 
+```{r}
+#Final roc curve
 last_fit_xgb %>% 
   collect_predictions() %>% 
   roc_curve(test, .pred_Fail) %>% 
   autoplot()
 
-
 ```
-
-
 
 # Deliverables
 
